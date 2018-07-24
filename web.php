@@ -37,8 +37,11 @@ $router->get('/', function () use ($router) {
 	echo count($results);
 	for($i=0;$i<count($results);$i++)
 	{
-		echo array_values($results)[$i]);
-		//echo "12";
+		$date = array_values($results)[$i];
+		//echo "12";	
+		echo "</br></br>";
+		var_dump($date);
+
 	}
 	//var_dump($result);
 
