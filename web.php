@@ -88,7 +88,16 @@ $router->get('/features/{refseq}', function ($refseq, \Illuminate\Http\Request $
 		$id = array_values($date)[0]["Id"][0];
 		$vowels = "@Genome:clogmia6";
 		$id = str_replace($vowels, "", $id);
-		$dat = array('end' => $end, 'name' => $name, 'start' => $start, 'strand' => $strand, 'type' => $category, 'uniqueID' => $id);
+		$dat = array('end' => $end, 'name' => $id, 'start' => $start, 'strand' => $strand, 'type' => $category, 'uniqueID' => $id, 'subfeatures' => array( array (
+		        'type' => 'mRNA',
+		        'uniqueID' => $id.'.t2',
+		        'start' => $start,
+		        'end' => $end,
+		        'strand' => $strand
+		    )
+		    )
+		);
+
 		array_push($res, $dat);
 	}
 
