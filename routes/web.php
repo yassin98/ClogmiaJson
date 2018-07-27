@@ -66,6 +66,7 @@ $router->get('/s', function (\Illuminate\Http\Request $request) use ($router) {
 
 });
 
+
 $router->get('/features/{refseq}', function ($refseq, \Illuminate\Http\Request $request) use ($router) {
 
    $category = "gene";
@@ -78,6 +79,12 @@ $router->get('/features/{refseq}', function ($refseq, \Illuminate\Http\Request $
     $json = json_decode($content, true);
 	$results = $json["results"];
 	$res = array();
+	$array3 = array();
+	$arrayPrueba = array();
+	$arrayId=array();
+	$arrayIdx=array();
+	$exonsName=array();
+	$arrayExon=array();
 	for($i=0;$i<count($results);$i++)
 	{
 		$date = array_values($results)[$i];
@@ -88,17 +95,70 @@ $router->get('/features/{refseq}', function ($refseq, \Illuminate\Http\Request $
 		$id = array_values($date)[0]["Id"][0];
 		$vowels = "@Genome:clogmia6";
 		$id = str_replace($vowels, "", $id);
-		$dat = array('end' => $end, 'name' => $id, 'start' => $start, 'strand' => $strand, 'type' => $category, 'uniqueID' => $id, 'subfeatures' => array( array (
-		        'type' => 'mRNA',
-		        'uniqueID' => $id.'.t2',
-		        'start' => $start,
-		        'end' => $end,
-		        'strand' => $strand
-		    )
-		    )
-		);
 
+		$chj = curl_init('http://clogmiawiki/w/api.php?action=smwparent&format=json&retrieve=tree&title=Gene:'.$id.'@Genome:clogmia6&type=Contig,Exon');
+		curl_setopt($chj, CURLOPT_RETURNTRANSFER, 1);
+	    $contentj = curl_exec($chj);
+	    curl_close($chj);
+	    $jsonj = json_decode($contentj, true);
+	   	$resultsj = $jsonj["smwparent"];
+		array_push($array3,$resultsj);
+
+		$dat = array('end' => $end, 'name' => $id, 'start' => $start, 'strand' => $strand, 'type' => $category, 'uniqueID' => $id);
 		array_push($res, $dat);
+
+		$vowel = "_";
+		$refseq = str_replace($vowel, " ", $refseq);
+		$idx = str_replace($vowel, " ", $id);
+		array_push($arrayId, $id);
+		array_push($arrayIdx, $idx);
+	}
+
+	for($j=0;$j<count($array3);$j++)
+	{
+		$datx = array_values($array3)[$j]["content"]["Contig:".$refseq."@Genome:clogmia6"]["link"]["Ref_id"]['Gene:'.$arrayId[$j].'@Genome:clogmia6']['link']['Ref_id']['Transcript:'.$arrayIdx[$j].'.t1@Genome:clogmia6'];
+		$startj = $datx['printouts']["Start"];
+		$endj = $datx['printouts']["End"];
+		$strandj = $datx['printouts']["Strand"];
+		$idj = $datx['printouts']["Id"];
+		$typex = $datx['type']["Categories"][0];
+		$vowels = "@Genome:clogmia6";
+		$idj = str_replace($vowels, "", $idj);
+		$exons = $datx['link']['Ref_id'];
+		array_push($exonsName, $exons);
+		$exonn=$exonsName[$j];
+		//var_dump($exonn);
+		$exonId=array_keys($exonn);
+		//print_r($exonId);
+		for($x=0;$x<count($exonId);$x++)
+		{
+			$exon2=$exonn[$exonId[$x]];
+			//print_r($exon2);
+			$startExon = $exon2['printouts']["Start"];
+			$endExon = $exon2['printouts']["End"];
+			$strandExon = $exon2['printouts']["Strand"];
+			$typeExon = $exon2['type']["Categories"][0];
+			$subfeatures2 = array(
+ 			    'end' => $endExon,
+       			'start' => $startExon,
+       			'strand' =>$strandExon,
+      	  		'type' => $typeExon
+			);
+			array_push($arrayExon, $subfeatures2);
+		}
+		$subfeatures = array(array(
+ 			    'end' => $endj,
+       			'name' => $idj,
+       			'start' => $startj,
+       			'strand' =>$strandj,
+       			'subfeatures' => $arrayExon,
+      	  		'type' => 'mRNA',
+        		'uniqueID' => $idj),
+		);
+		$data = $res[$j];
+		$data['subfeatures']=$subfeatures;
+		array_push($arrayPrueba, $data);
+		$arrayExon=array();
 	}
 
 	if ( $request->has('sequence') ) {
@@ -109,11 +169,12 @@ $router->get('/features/{refseq}', function ($refseq, \Illuminate\Http\Request $
 	}
 	else
 	{
-		$data = array('features' => $res);
+		$data = array('features' => $arrayPrueba);
 	}
-	return response()->json( $data );
-	//var_dump($res);
+	return response()->json( $data);
+
 });
+
 
 $router->get('/stats/global', function (\Illuminate\Http\Request $request) use ($router) {
 
@@ -145,6 +206,7 @@ $router->get('/refSeqs.json', function (\Illuminate\Http\Request $request) use (
 		array_push($resp, $data);
 	}
 	return response()->json($resp);
+
 });
 
 $router->get('/names', function (\Illuminate\Http\Request $request) use ($router)
@@ -153,32 +215,7 @@ $router->get('/names', function (\Illuminate\Http\Request $request) use ($router
 	$CHROM_NAMES = namesGlobal();
 	$resp = array();
 
-	/*if ( $request->has('equals') ) {
 
-		foreach ( $CHROM_NAMES as $key ) {
-
-			foreach ( $features[$key] as $f ) {
-
-				if( $f['name'] === $request->input('equals') ){
-
-					$resp=array_push($resp,feat2searchLoc($key, $f));
-				}
-			}
-		}
-	}
-	elseif ( $request->has('startswith') ) {
-
-		foreach ( $CHROM_NAMES as $key ) {
-
-			foreach ( $features[$key] as $f ) {
-
-				if ($request->has('equals')){
-
-					array_push($data,feat2searchLoc($key, $f));
-				}
-			}
-		}
-	}*/
 	json_encode($resp);
 	return response()->json( $resp );
 });
