@@ -211,11 +211,74 @@ $router->get('/refSeqs.json', function (\Illuminate\Http\Request $request) use (
 
 $router->get('/names', function (\Illuminate\Http\Request $request) use ($router)
 {
-	$features = featuresGlobal();
-	$CHROM_NAMES = namesGlobal();
-	$resp = array();
 
+	$result = array();
 
-	json_encode($resp);
-	return response()->json( $resp );
+	if ( $request->has('equals') ) {
+		$refseq = $request->input('equals');
+	}
+	
+	$find   = ':';
+	$pos = strpos($refseq, $find);
+	if ($pos === false) {
+		$result=refseqNames($refseq);
+	}
+	else
+	{
+		$refseq = explode(":", $refseq);
+		$refseq = $refseq[0];
+		//$refseq=$refseq2[0];
+		$result=refseqNames($refseq);
+	}
+	return response()->json( $result );
 });
+
+
+//http://clogmiawiki/wiki/Special:Ask/-5B-5B:Contig:scaffold-20113@Genome:clogmia6-5D-5D/-3FSize/-3FRef-20id/mainlabel%3D/limit%3D50/prettyprint%3Dtrue/format%3Djson
+function refseqNames($refseq)
+{
+
+	if ( $refseq ) 
+	{
+		$symbol = "_";
+		$seq = str_replace($symbol, "-20", $refseq);
+		$symbol2 = "_";
+		$seq2 = str_replace($symbol2, " ", $refseq);
+		$find2   = '.g';
+		$pos2 = strpos($refseq, $find2);
+		if ($pos2 === false) 
+		{
+			$ch = curl_init('http://clogmiawiki/wiki/Special:Ask/-5B-5B:Contig:'.$seq.'@Genome:clogmia6-5D-5D/-3FSize/-3FRef-20id/mainlabel%3D/limit%3D50/prettyprint%3Dtrue/format%3Djson');
+		    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		    $content = curl_exec($ch);
+		    curl_close($ch);
+		    $json = json_decode($content, true);
+		    if (count($json)>0) {
+
+		    	$results = $json["results"]["Contig:".$seq2."@Genome:clogmia6"]["printouts"];
+		    	$end = $results["Size"][0];
+		    	$ref = $results["Ref id"][0]["fulltext"];
+		    	$location = array('ref' => $ref, 'start' => 0, 'end' => $end, 'tracks' => array("REST Test2 Track"), 'objectName' => $refseq);
+		    }
+		}
+	    else
+	    {
+			$ch = curl_init('clogmiawiki/wiki/Special:Ask/-5B-5B:Gene:'.$seq.'@Genome:clogmia6-5D-5D/-3FStart/-3FEnd/-3FRef-20id/mainlabel%3D/limit%3D50/prettyprint%3Dtrue/format%3Djson');
+		    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		    $content = curl_exec($ch);
+		    curl_close($ch);
+		    $json = json_decode($content, true);
+		    if (count($json)>0) {
+
+		    	$results = $json["results"]["Gene:".$seq2."@Genome:clogmia6"]["printouts"];
+		    	$start = $results["Start"][0];
+		    	$end = $results["End"][0];
+		    	$ref = $results["Ref id"][0]["fulltext"];
+		    	$location = array('ref' => $ref, 'start' => $start, 'end' => $end, 'tracks' => array("REST Test2 Track"), 'objectName' => $refseq);
+		    }
+		}
+		$data = array('name' => $refseq, 'location' => $location);
+		$result=array($data);
+    }
+    return $result;
+}
